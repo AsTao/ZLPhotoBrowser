@@ -311,7 +311,7 @@ extension ViewController: UICollectionViewDataSource, UICollectionViewDelegateFl
     }
     
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        var columnCount: CGFloat = (UI_USER_INTERFACE_IDIOM() == .pad) ? 6 : 4
+        var columnCount: CGFloat = (UIDevice.current.userInterfaceIdiom == .pad) ? 6 : 4
         if UIApplication.shared.statusBarOrientation.isLandscape {
             columnCount += 2
         }

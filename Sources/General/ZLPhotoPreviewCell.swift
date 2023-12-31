@@ -925,7 +925,17 @@ class ZLPreviewView: UIView {
                 guard self?.imageIdentifier == self?.model.ident else {
                     return
                 }
-                self?.imageView.image = image
+                if image != nil && self?.model.isSelected == true {
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 0.1 ) {
+                        let watermarkImage = ZLWatermark.shared.watermark(image!,ZLWatermark.shared.watermarkType)
+                        DispatchQueue.main.async {
+                            self?.imageView.image = watermarkImage
+                        }
+                    }
+                }else{
+                    self?.imageView.image = image
+                }
+                
                 self?.resetSubViewSize()
                 if !isDegraded {
                     self?.progressView.isHidden = true

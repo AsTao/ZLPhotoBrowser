@@ -61,7 +61,7 @@ class ZLPhotoPreviewController: UIViewController {
     
     var editBtn: UIButton!
     
-    var originalBtn: UIButton!
+    var originalBtn: Watermakebutton!
     
     var doneBtn: UIButton!
     
@@ -117,6 +117,7 @@ class ZLPhotoPreviewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         self.navigationController?.navigationBar.isHidden = true
+        ZLWatermark.shared.watermakebutton = originalBtn
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -168,8 +169,20 @@ class ZLPhotoPreviewController: UIViewController {
             cell.loadGifWhenCellDisplaying()
         } else if let cell = cell as? ZLLivePhotoPreviewCell {
             cell.loadLivePhotoData()
+        } else if let cell = cell as? ZLPhotoPreviewCell {
+            cell.preview.loadPhoto()
         }
     }
+    
+    func reloadCurrentPhtotCell(){
+        guard let cell = self.collectionView.cellForItem(at: IndexPath(row: self.currentIndex, section: 0)) else {
+            return
+        }
+        if let cell = cell as? ZLPhotoPreviewCell {
+            cell.preview.loadPhoto()
+        }
+    }
+    
     
     func refreshBottomViewFrame() {
         var insets = UIEdgeInsets(top: 20, left: 0, bottom: 0, right: 0)
@@ -198,10 +211,17 @@ class ZLPhotoPreviewController: UIViewController {
         let editBtnW = editTitle.boundingRect(font: ZLLayout.bottomToolTitleFont, limitSize: CGSize(width: CGFloat.greatestFiniteMagnitude, height: 30)).width
         self.editBtn.frame = CGRect(x: 15, y: btnY, width: editBtnW, height: btnH)
         
-        let originalTitle = localLanguageTextValue(.originalPhoto)
-        let w = originalTitle.boundingRect(font: ZLLayout.bottomToolTitleFont, limitSize: CGSize(width: CGFloat.greatestFiniteMagnitude, height: 30)).width + 30
-        let originalBtnX = editBtn.isHidden ? 20 : (self.bottomView.bounds.width-w)/2-5
-        self.originalBtn.frame = CGRect(x: originalBtnX, y: btnY, width: w, height: btnH)
+        let originalTitle = ZLWatermark.shared.watermarkType.rawValue//watermarkText.rawValue//localLanguageTextValue(.originalPhoto)
+        let originalTitleW = originalTitle.boundingRect(font: ZLLayout.bottomToolTitleFont, limitSize: CGSize(width: CGFloat.greatestFiniteMagnitude, height: 30)).width
+        let originBtnW = originalTitleW + self.originalBtn.arrow.frame.width + 32
+        self.originalBtn.titleLabel.frame = CGRect(x: 12, y: 0, width: originalTitleW, height: btnH)
+        self.originalBtn.arrow.frame = CGRect(x: self.originalBtn.titleLabel.frame.maxX + 8,
+                                              y: (btnH - self.originalBtn.arrow.frame.height)/2,
+                                              width: self.originalBtn.arrow.frame.width, height: self.originalBtn.arrow.frame.height)
+        
+        let originalBtnX = (self.bottomView.bounds.width-originBtnW)/2-5
+        self.originalBtn.frame = CGRect(x: originalBtnX, y: btnY, width: originBtnW, height: btnH)
+        
         
         let selCount = (self.navigationController as? ZLImageNavController)?.arrSelectedModels.count ?? 0
         var doneTitle = localLanguageTextValue(.done)
@@ -304,13 +324,13 @@ class ZLPhotoPreviewController: UIViewController {
         self.editBtn.isHidden = (!config.allowEditImage && !config.allowEditVideo)
         self.bottomView.addSubview(self.editBtn)
         
-        self.originalBtn = createBtn(localLanguageTextValue(.originalPhoto), #selector(originalPhotoClick))
-        self.originalBtn.setImage(getImage("zl_btn_original_circle"), for: .normal)
-        self.originalBtn.setImage(getImage("zl_btn_original_selected")?.tint(color: .originalCirleSelectedTintColor), for: .selected)
-        self.originalBtn.titleEdgeInsets = UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 0)
-        self.originalBtn.isHidden = !(config.allowSelectOriginal && config.allowSelectImage)
-        self.originalBtn.isSelected = (self.navigationController as! ZLImageNavController).isSelectedOriginal
+        
+        self.originalBtn = Watermakebutton(frame: .zero)
+        self.originalBtn.selectWatermakeBlock = { [weak self] in
+            self?.originalPhotoClick()
+        }
         self.bottomView.addSubview(self.originalBtn)
+        
         
         self.doneBtn = createBtn(localLanguageTextValue(.done), #selector(doneBtnClick))
         self.doneBtn.setTitleColor(.doneBtnColor, for: .normal)
@@ -412,9 +432,9 @@ class ZLPhotoPreviewController: UIViewController {
         }
         self.editBtn.isHidden = hideEditBtn
         
-        if ZLPhotoConfiguration.default().allowSelectOriginal && ZLPhotoConfiguration.default().allowSelectImage {
-            self.originalBtn.isHidden = !((currentModel.type == .image) || (currentModel.type == .livePhoto && !config.allowSelectLivePhoto) || (currentModel.type == .gif && !config.allowSelectGif))
-        }
+//        if ZLPhotoConfiguration.default().allowSelectImage {
+//            self.originalBtn.isHidden = !((currentModel.type == .image) || (currentModel.type == .livePhoto && !config.allowSelectLivePhoto) || (currentModel.type == .gif && !config.allowSelectGif))
+//        }
     }
     
     func resetIndexLabelStatus() {
@@ -459,6 +479,7 @@ class ZLPhotoPreviewController: UIViewController {
             self.selPhotoPreview?.addSelModel(model: currentModel)
         }
         self.resetSubViewStatus()
+        self.reloadCurrentPhtotCell()
     }
     
     @objc func editBtnClick() {
@@ -500,12 +521,21 @@ class ZLPhotoPreviewController: UIViewController {
     }
     
     @objc func originalPhotoClick() {
-        self.originalBtn.isSelected = !self.originalBtn.isSelected
-        let nav = (self.navigationController as? ZLImageNavController)
-        nav?.isSelectedOriginal = self.originalBtn.isSelected
-        if nav?.arrSelectedModels.count == 0 {
-            self.selectBtnClick()
+        let h = self.navigationController?.navigationBar.frame.height ?? 0
+        let currentModel = self.arrDataSources[self.currentIndex]
+        ZLWatermark.shared.show(inView: self.collectionView, navigationBarHeight: h) { [weak self] in
+            self?.originalBtn.titleLabel.text = ZLWatermark.shared.watermarkType.rawValue
+            self?.collectionView.reloadData()
+//            if currentModel.isSelected {
+//                self?.reloadCurrentPhtotCell()
+//            }
         }
+//        self.originalBtn.isSelected = !self.originalBtn.isSelected
+//        let nav = (self.navigationController as? ZLImageNavController)
+//        nav?.isSelectedOriginal = self.originalBtn.isSelected
+//        if nav?.arrSelectedModels.count == 0 {
+//            self.selectBtnClick()
+//        }
     }
     
     @objc func doneBtnClick() {

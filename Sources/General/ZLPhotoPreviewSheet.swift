@@ -84,7 +84,7 @@ public class ZLPhotoPreviewSheet: UIView {
     ///  - params1: images for asset.
     ///  - params2: selected assets
     ///  - params3: is full image
-    @objc public var selectImageBlock: ( ([UIImage], [PHAsset], Bool) -> Void )?
+    @objc public var selectImageBlock: ( ([UIImage], [PHAsset], Bool, String) -> Void )?
     
     /// Callback for photos that failed to parse
     /// block params
@@ -503,7 +503,7 @@ public class ZLPhotoPreviewSheet: UIView {
     
     func requestSelectPhoto(viewController: UIViewController? = nil) {
         guard !self.arrSelectedModels.isEmpty else {
-            self.selectImageBlock?([], [], self.isSelectOriginal)
+            self.selectImageBlock?([], [], self.isSelectOriginal,ZLWatermark.shared.watermarkType.rawValue)
             self.hide()
             viewController?.dismiss(animated: true, completion: nil)
             return
@@ -538,7 +538,7 @@ public class ZLPhotoPreviewSheet: UIView {
             hud.hide()
             
             func call() {
-                self?.selectImageBlock?(sucImages, sucAssets, self?.isSelectOriginal ?? false)
+                self?.selectImageBlock?(sucImages, sucAssets, self?.isSelectOriginal ?? false, ZLWatermark.shared.watermarkType.rawValue)
                 if !errorAssets.isEmpty {
                     self?.selectImageRequestErrorBlock?(errorAssets, errorIndexs)
                 }

@@ -41,6 +41,8 @@ extension ZLThumbnailViewController {
     
 }
 
+
+
 class ZLThumbnailViewController: UIViewController {
 
     var albumList: ZLAlbumListModel
@@ -61,7 +63,7 @@ class ZLThumbnailViewController: UIViewController {
     
     var previewBtn: UIButton!
     
-    var originalBtn: UIButton!
+    var originalBtn: Watermakebutton!
     
     var doneBtn: UIButton!
     
@@ -172,8 +174,12 @@ class ZLThumbnailViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        ZLWatermark.shared.userName = getUserName()
+        ZLWatermark.shared.watermarkType = .personalWatermark
+        
         self.setupUI()
         
+
         if ZLPhotoConfiguration.default().allowSlideSelect {
             self.panGes = UIPanGestureRecognizer(target: self, action: #selector(slideSelectAction(_:)))
             self.panGes.delegate = self
@@ -195,12 +201,7 @@ class ZLThumbnailViewController: UIViewController {
         self.navigationController?.navigationBar.isHidden = true
         self.collectionView.reloadItems(at: self.collectionView.indexPathsForVisibleItems)
         self.resetBottomToolBtnStatus()
-    }
-    
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        self.isLayoutOK = true
-        self.isPreviewPush = false
+        ZLWatermark.shared.hide()
     }
     
     override func viewDidLayoutSubviews() {
@@ -276,9 +277,15 @@ class ZLThumbnailViewController: UIViewController {
             let previewBtnW = previewTitle.boundingRect(font: ZLLayout.bottomToolTitleFont, limitSize: CGSize(width: CGFloat.greatestFiniteMagnitude, height: 30)).width
             self.previewBtn.frame = CGRect(x: 15, y: btnY, width: previewBtnW, height: btnH)
             
-            let originalTitle = localLanguageTextValue(.originalPhoto)
-            let originBtnW = originalTitle.boundingRect(font: ZLLayout.bottomToolTitleFont, limitSize: CGSize(width: CGFloat.greatestFiniteMagnitude, height: 30)).width + 30
-            let originalBtnX = previewBtn.isHidden ? 20 : (self.bottomView.bounds.width-originBtnW)/2-5
+            let originalTitle = ZLWatermark.shared.watermarkType.rawValue//watermarkText.rawValue//localLanguageTextValue(.originalPhoto)
+            let originalTitleW = originalTitle.boundingRect(font: ZLLayout.bottomToolTitleFont, limitSize: CGSize(width: CGFloat.greatestFiniteMagnitude, height: 30)).width
+            let originBtnW = originalTitleW + self.originalBtn.arrow.frame.width + 32
+            self.originalBtn.titleLabel.frame = CGRect(x: 12, y: 0, width: originalTitleW, height: btnH)
+            self.originalBtn.arrow.frame = CGRect(x: self.originalBtn.titleLabel.frame.maxX + 8,
+                                                  y: (btnH - self.originalBtn.arrow.frame.height)/2,
+                                                  width: self.originalBtn.arrow.frame.width, height: self.originalBtn.arrow.frame.height)
+            
+            let originalBtnX = (self.bottomView.bounds.width-originBtnW)/2-5
             self.originalBtn.frame = CGRect(x: originalBtnX, y: btnY, width: originBtnW, height: btnH)
             
             self.refreshDoneBtnFrame()
@@ -335,12 +342,11 @@ class ZLThumbnailViewController: UIViewController {
         self.previewBtn.isHidden = !ZLPhotoConfiguration.default().showPreviewButtonInAlbum
         self.bottomView.addSubview(self.previewBtn)
         
-        self.originalBtn = createBtn(localLanguageTextValue(.originalPhoto), #selector(originalPhotoClick))
-        self.originalBtn.setImage(getImage("zl_btn_original_circle"), for: .normal)
-        self.originalBtn.setImage(getImage("zl_btn_original_selected")?.tint(color: .originalCirleSelectedTintColor), for: .selected)
-        self.originalBtn.titleEdgeInsets = UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 0)
-        self.originalBtn.isHidden = !(ZLPhotoConfiguration.default().allowSelectOriginal && ZLPhotoConfiguration.default().allowSelectImage)
-        self.originalBtn.isSelected = (self.navigationController as! ZLImageNavController).isSelectedOriginal
+
+        self.originalBtn = Watermakebutton(frame: .zero)
+        self.originalBtn.selectWatermakeBlock = { [weak self] in
+            self?.originalPhotoClick()
+        }
         self.bottomView.addSubview(self.originalBtn)
         
         self.doneBtn = createBtn(localLanguageTextValue(.done), #selector(doneBtnClick))
@@ -435,6 +441,26 @@ class ZLThumbnailViewController: UIViewController {
         }
     }
     
+    func getUserName() -> String{
+        let jsonString = UserDefaults.standard.string(forKey: "COLG_SAVE_CPassport_User_Info_String")
+        if let jsonData = jsonString?.data(using: .utf8){
+            let dictionary = try? JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: Any]
+            let username = dictionary?["username"] as? String ?? ""
+            return "@\(limitStringToMaxLength(username, maxLength: 12))"
+        }else{
+            return "@"
+        }
+    }
+    
+    func limitStringToMaxLength(_ string: String, maxLength: Int) -> String {
+        if string.count > maxLength {
+            let index = string.index(string.startIndex, offsetBy: maxLength)
+            return String(string.prefix(upTo: index))
+        } else {
+            return string
+        }
+    }
+    
     // MARK: btn actions
     
     @objc func previewBtnClick() {
@@ -444,8 +470,12 @@ class ZLThumbnailViewController: UIViewController {
     }
     
     @objc func originalPhotoClick() {
-        self.originalBtn.isSelected = !self.originalBtn.isSelected
-        (self.navigationController as? ZLImageNavController)?.isSelectedOriginal = self.originalBtn.isSelected
+        let h = self.navigationController?.navigationBar.frame.height ?? 0
+        ZLWatermark.shared.show(inView: self.collectionView, navigationBarHeight: h) { [weak self] in
+            self?.originalBtn.titleLabel.text = ZLWatermark.shared.watermarkType.rawValue
+
+        }
+
     }
     
     @objc func doneBtnClick() {
@@ -1481,3 +1511,8 @@ class ZLLimitedAuthorityTipsView: UIView {
     }
     
 }
+
+
+
+
+
